@@ -28,7 +28,7 @@ class TextPrint:
     def reset(self):
         self.x = 10
         self.y = 10
-        self.line_height = 30
+        self.line_height = 24
 
     def indent(self):
         self.x += 20

@@ -8,7 +8,8 @@
 
 
 import pygame
-import sys, time
+import sys, time, math
+from enum import Enum
 
 LINUX = 0
 MAC = 1
@@ -92,13 +93,66 @@ elif platform_id == MAC:
     LEFT_TRIGGER = 4
     RIGHT_TRIGGER = 5
 
+
+class SDir(Enum):
+    NEUTRAL = 0
+    RIGHT = 1
+    RU = 2
+    UP = 3
+    LU = 4
+    LEFT = 5
+    LD = 6
+    DOWN = 7
+    RD = 8
+
+
+def stick2angle(axis1, axis2):
+    # -1 left right 1
+    # -1 up down 1
+    x = axis1
+    y = axis2 * -1
+    return math.degrees(math.atan2(y, x))
+
+
+def stick2dir(axis1, axis2):
+    neutral = abs(axis1) <= 0.7 and abs(axis2) <= 0.7
+    # length = math.sqrt(axis1**2 + axis2**2)
+    # neutral = length <= 1.0 # ~0.7*1.4
+    if neutral:
+        return SDir.NEUTRAL
+
+    angle = stick2angle(axis1, axis2)
+    inc = 22.5
+    if angle > -inc and angle <= inc:
+        return SDir.RIGHT
+    elif angle > inc and angle <= 3 * inc:
+        return SDir.RU
+    elif angle > 3 * inc and angle <= 5 * inc:
+        return SDir.UP
+    elif angle > 5 * inc and angle <= 7 * inc:
+        return SDir.LU
+    elif angle > 7 * inc or angle <= -7 * inc:
+        return SDir.LEFT
+    elif angle > -7 * inc and angle <= -5 * inc:
+        return SDir.LD
+    elif angle > -5 * inc and angle <= -3 * inc:
+        return SDir.DOWN
+    elif angle > -3 * inc and angle <= -1 * inc:
+        return SDir.RD
+    else:
+        raise Exception(f'BUG in stick2dir: No clause matched angle {angle}.')
+
+
 class Controller:
     INACTIVITY_RECONNECT_TIME = 5
     RECONNECT_TIMEOUT = 1
 
     def hasController(self, force=False):
         now = time.time()
-        if force or (now - self.lastActive > self.INACTIVITY_RECONNECT_TIME and now - self.lastTime > self.RECONNECT_TIMEOUT):
+        if force or (
+            now - self.lastActive > self.INACTIVITY_RECONNECT_TIME
+            and now - self.lastTime > self.RECONNECT_TIMEOUT
+        ):
             self.lastTime = now
             pygame.joystick.quit()
             pygame.joystick.init()
@@ -110,7 +164,7 @@ class Controller:
         self.left_trigger_used = False
         self.right_trigger_used = False
 
-        self.lastTime = 0 # TODO
+        self.lastTime = 0  # TODO
         self.lastActive = 0
 
         if self.hasController(force=True):
@@ -119,7 +173,7 @@ class Controller:
         else:
             self.joystick = None
 
-    def __init__(self, id_num = 0, dead_zone = 0.15):
+    def __init__(self, id_num=0, dead_zone=0.15):
         """
         Initializes a controller. IDs for controllers begin at 0 and increment by 1
         each time a controller is initialized.
@@ -168,48 +222,54 @@ class Controller:
         """
 
         if platform_id == LINUX:
-            return (self.joystick.get_button(A),
-                    self.joystick.get_button(B),
-                    self.joystick.get_button(X),
-                    self.joystick.get_button(Y),
-                    self.joystick.get_button(LEFT_BUMP),
-                    self.joystick.get_button(RIGHT_BUMP),
-                    self.joystick.get_button(BACK),
-                    self.joystick.get_button(START),
-                    self.joystick.get_button(GUIDE),
-                    # 0, # Unused, since Guide only works on Linux&mac
-                    self.joystick.get_button(LEFT_STICK_BTN),
-                    self.joystick.get_button(RIGHT_STICK_BTN))
+            return (
+                self.joystick.get_button(A),
+                self.joystick.get_button(B),
+                self.joystick.get_button(X),
+                self.joystick.get_button(Y),
+                self.joystick.get_button(LEFT_BUMP),
+                self.joystick.get_button(RIGHT_BUMP),
+                self.joystick.get_button(BACK),
+                self.joystick.get_button(START),
+                self.joystick.get_button(GUIDE),
+                # 0, # Unused, since Guide only works on Linux&mac
+                self.joystick.get_button(LEFT_STICK_BTN),
+                self.joystick.get_button(RIGHT_STICK_BTN),
+            )
 
         elif platform_id == WINDOWS:
-            return (self.joystick.get_button(A),
-                    self.joystick.get_button(B),
-                    self.joystick.get_button(X),
-                    self.joystick.get_button(Y),
-                    self.joystick.get_button(LEFT_BUMP),
-                    self.joystick.get_button(RIGHT_BUMP),
-                    self.joystick.get_button(BACK),
-                    self.joystick.get_button(START),
-                    self.joystick.get_button(LEFT_STICK_BTN),
-                    self.joystick.get_button(RIGHT_STICK_BTN),
-                    0) # No GUIDE on Windows
+            return (
+                self.joystick.get_button(A),
+                self.joystick.get_button(B),
+                self.joystick.get_button(X),
+                self.joystick.get_button(Y),
+                self.joystick.get_button(LEFT_BUMP),
+                self.joystick.get_button(RIGHT_BUMP),
+                self.joystick.get_button(BACK),
+                self.joystick.get_button(START),
+                self.joystick.get_button(LEFT_STICK_BTN),
+                self.joystick.get_button(RIGHT_STICK_BTN),
+                0,
+            )  # No GUIDE on Windows
 
         elif platform_id == MAC:
-            return (0, # Unused
-                    0, # Unused
-                    0, # Unused
-                    0, # Unused
-                    self.joystick.get_button(START),
-                    self.joystick.get_button(BACK),
-                    self.joystick.get_button(LEFT_STICK_BTN),
-                    self.joystick.get_button(RIGHT_STICK_BTN),
-                    self.joystick.get_button(LEFT_BUMP),
-                    self.joystick.get_button(RIGHT_BUMP),
-                    self.joystick.get_button(GUIDE),
-                    self.joystick.get_button(A),
-                    self.joystick.get_button(B),
-                    self.joystick.get_button(X),
-                    self.joystick.get_button(Y))
+            return (
+                0,  # Unused
+                0,  # Unused
+                0,  # Unused
+                0,  # Unused
+                self.joystick.get_button(START),
+                self.joystick.get_button(BACK),
+                self.joystick.get_button(LEFT_STICK_BTN),
+                self.joystick.get_button(RIGHT_STICK_BTN),
+                self.joystick.get_button(LEFT_BUMP),
+                self.joystick.get_button(RIGHT_BUMP),
+                self.joystick.get_button(GUIDE),
+                self.joystick.get_button(A),
+                self.joystick.get_button(B),
+                self.joystick.get_button(X),
+                self.joystick.get_button(Y),
+            )
 
     def get_left_stick(self):
         """
