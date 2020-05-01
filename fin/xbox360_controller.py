@@ -104,6 +104,12 @@ class SDir(Enum):
     LD = 6
     DOWN = 7
     RD = 8
+# class SDir4(Enum):
+#     NEUTRAL = 0
+#     RIGHT = 1
+#     UP = 3
+#     LEFT = 5
+#     DOWN = 7
 
 
 def stick2angle(axis1, axis2):
@@ -114,33 +120,44 @@ def stick2angle(axis1, axis2):
     return math.degrees(math.atan2(y, x))
 
 
-def stick2dir(axis1, axis2):
-    neutral = abs(axis1) <= 0.7 and abs(axis2) <= 0.7
+def stick2dir(axis1, axis2, mode=8, dead_zone=0.5):
+    # Don't increase dead_zone or your rotations will get split!
+    neutral = abs(axis1) <= dead_zone and abs(axis2) <= dead_zone
     # length = math.sqrt(axis1**2 + axis2**2)
     # neutral = length <= 1.0 # ~0.7*1.4
     if neutral:
         return SDir.NEUTRAL
 
     angle = stick2angle(axis1, axis2)
-    inc = 22.5
-    if angle > -inc and angle <= inc:
-        return SDir.RIGHT
-    elif angle > inc and angle <= 3 * inc:
-        return SDir.RU
-    elif angle > 3 * inc and angle <= 5 * inc:
-        return SDir.UP
-    elif angle > 5 * inc and angle <= 7 * inc:
-        return SDir.LU
-    elif angle > 7 * inc or angle <= -7 * inc:
-        return SDir.LEFT
-    elif angle > -7 * inc and angle <= -5 * inc:
-        return SDir.LD
-    elif angle > -5 * inc and angle <= -3 * inc:
-        return SDir.DOWN
-    elif angle > -3 * inc and angle <= -1 * inc:
-        return SDir.RD
-    else:
-        raise Exception(f'BUG in stick2dir: No clause matched angle {angle}.')
+    if mode == 8:
+        inc = 22.5
+        if angle > -inc and angle <= inc:
+            return SDir.RIGHT
+        elif angle > inc and angle <= 3 * inc:
+            return SDir.RU
+        elif angle > 3 * inc and angle <= 5 * inc:
+            return SDir.UP
+        elif angle > 5 * inc and angle <= 7 * inc:
+            return SDir.LU
+        elif angle > 7 * inc or angle <= -7 * inc:
+            return SDir.LEFT
+        elif angle > -7 * inc and angle <= -5 * inc:
+            return SDir.LD
+        elif angle > -5 * inc and angle <= -3 * inc:
+            return SDir.DOWN
+        elif angle > -3 * inc and angle <= -1 * inc:
+            return SDir.RD
+    elif mode == 4:
+        inc = 45
+        if angle > -inc and angle <= inc:
+            return SDir.RIGHT
+        elif angle > inc and angle <= 3 * inc:
+            return SDir.UP
+        elif angle > 3 * inc or angle <= -3 * inc:
+            return SDir.LEFT
+        elif angle > -3 * inc and angle <= -1 * inc:
+            return SDir.DOWN
+    raise Exception(f'BUG in stick2dir(mode={mode}): No clause matched angle {angle}.')
 
 
 class Controller:

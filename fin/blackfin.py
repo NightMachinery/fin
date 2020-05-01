@@ -8,8 +8,25 @@ from collections import deque
 from dataclasses import dataclass
 import typing
 import datetime
+import time
+##
+from multiprocessing import Process, Queue, Value
+from miclevel import monitor_audio
+# q = Queue()
+vol_norm = Value('d', 0.0)
+vol_rms = Value('d', 0.0)
+p_audio_monitor = Process(target=monitor_audio, args=(vol_norm, vol_rms, False))
+p_audio_monitor.start()
+time.sleep(1)
+print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
+# print(q.get())
+##
 
 ###
+STICK_MODE=4
+MODE_FACTOR = 2
+DEADZONE = 0.15
+##
 PAD_BASE = 20
 LEFT_STICK_BASE = 30
 RIGHT_STICK_BASE = 40
@@ -32,8 +49,8 @@ class State:
 ###
 pygame.init()
 dbg = os.environ.get('DEBUGME', '')
-c = x.Controller(dead_zone=0.2)
-
+c = x.Controller(dead_zone=DEADZONE)
+pressed = None
 g = [deque(maxlen=10) for i in range(100)]  # global state of all keys
 
 
@@ -80,7 +97,7 @@ def updateRotation(id, ids, allow_dups=True):
     lrot = lrot_s.state
     neutral = True
     for key_id in ids:
-        key = g[key_id][-1].state
+        key = id_to_curr_state(key_id)
         if key:
             neutral = False
             if not lrot or (allow_dups and lrot[-1] != key_id) or (not allow_dups and not key_id in lrot):
@@ -91,8 +108,49 @@ def updateRotation(id, ids, allow_dups=True):
         if dbg:
             # print(f"\nrotations {id}: {d}\n")
             print(f"last rotation {id}: {lrot_s.state}")
-        return True
+        return lrot_s
     return False
+
+def rotation2num(rot):
+    l = len(rot)
+    if l == 0:
+        raise Exception("Empty rotation given to rotation2num!")
+    elif l == 1:
+        return 0
+    else:
+        first_elem = rot[0]
+        second_elem = rot[1]
+        last_elem = rot[-1]
+        rot_base = first_elem - (first_elem % 10)
+        first_elem -= rot_base + 1
+        second_elem -= rot_base + 1
+        last_elem -= rot_base + 1
+        # print(f"f: {first_elem} s: {second_elem}")
+        direction = 1
+        if ((second_elem - first_elem)%8) > 4:
+            direction = -1
+
+        return direction * (((direction*(last_elem - first_elem))%8) / MODE_FACTOR + (8 / MODE_FACTOR) * (l//(STICK_MODE+1)))
+
+def modifiedAction(modifiers_needed_list, actions_list):
+    """ The lists need to be from most specific to least. """
+    for (i, mods) in enumerate(modifiers_needed_list):
+        if all([id_to_curr_state(mod) for mod in mods]):
+            doAction(actions_list[i])
+            return
+
+def id_to_curr_state(id):
+    d = g[id]
+    if d:
+        return d[-1].state
+    else:
+        return False
+
+def doAction(action):
+    if callable(action):
+        action()
+    else:
+        print(f"ACTION: {action}")
 
 
 done = False
@@ -129,9 +187,9 @@ while not done:
     rt_stick_btn = pressed[x.RIGHT_STICK_BTN]
 
     lt_x, lt_y = c.get_left_stick()
-    lt_dir = x.stick2dir(lt_x, lt_y)
+    lt_dir = x.stick2dir(lt_x, lt_y, mode=STICK_MODE)
     rt_x, rt_y = c.get_right_stick()
-    rt_dir = x.stick2dir(rt_x, rt_y)
+    rt_dir = x.stick2dir(rt_x, rt_y, mode=STICK_MODE)
 
     triggers = c.get_triggers()
 
@@ -169,8 +227,31 @@ while not done:
     # updateBtn(x., pressed)
 
     
-    updateRotation(ROTATIONS_BASE, [LEFT_STICK_BASE + i for i in range(1,9)])
-    updateRotation(ROTATIONS_BASE + 1, [RIGHT_STICK_BASE + i for i in range(1,9)])
+    left_rot = updateRotation(ROTATIONS_BASE, [LEFT_STICK_BASE + i for i in range(1,9)])
+    if left_rot:
+        lrot = left_rot.state
+        rn = rotation2num(lrot)
+        r_first = lrot[0]
+        r_base = LEFT_STICK_BASE
+        m_base = RIGHT_STICK_BASE
+        if dbg:
+            print(f"left rot with first {r_first} and rotation number {rn}")
+        if r_first - r_base == 1:
+            if rn == 0:
+                modifiedAction([
+                    [m_base+1],
+                    [],
+                ],
+                               [
+                                   lambda: print(f"Current audio level: {vol_norm.value}   {vol_rms.value}"),
+                                   ['e'],
+                        ])
+    right_rot = updateRotation(ROTATIONS_BASE + 1, [RIGHT_STICK_BASE + i for i in range(1,9)])
+    if right_rot:
+        rn = rotation2num(right_rot.state)
+        if dbg:
+            print(f"left rot num: {rn}")
+
     updateRotation(ROTATIONS_BASE + 2, [PAD_BASE + i for i in range(1,9)])
     # print(f"L RIGHT: {g[20 + x.SDir.RIGHT.value]}")
     # print(f"rt_bump: {g[x.RIGHT_BUMP]}")
