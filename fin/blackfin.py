@@ -13,14 +13,20 @@ import time
 from multiprocessing import Process, Queue, Value
 from miclevel import monitor_audio
 # q = Queue()
-vol_norm = Value('d', 0.0)
-vol_rms = Value('d', 0.0)
+vol_norm = Value('d', 980.0)
+vol_rms = Value('d', 980.0)
 p_audio_monitor = Process(target=monitor_audio, args=(vol_norm, vol_rms, False))
+p_audio_monitor.daemon = True
 p_audio_monitor.start()
-time.sleep(1)
+# time.sleep(1)
 print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
+# p_audio_monitor.join()
+# print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
+# exit()
 # print(q.get())
 ##
+import pyautogui as pag # BUG: Should not be imported before p_audio_monitor.start()
+
 
 ###
 STICK_MODE=4
@@ -150,7 +156,13 @@ def doAction(action):
     if callable(action):
         action()
     else:
-        print(f"ACTION: {action}")
+        rms = vol_rms.value
+        m_audio = rms > 0.01 # 0.1?
+        m_lbump = pressed[x.RIGHT_BUMP]
+        if m_audio or m_lbump:
+            action.insert(0, 'shift')
+        pag.hotkey(*action)
+        print(f"ACTION: {action}\nvol_rms: {rms}")
 
 
 done = False
@@ -239,13 +251,31 @@ while not done:
         if r_first - r_base == 1:
             if rn == 0:
                 modifiedAction([
-                    [m_base+1],
+                    *[[m_base+i] for i in range(1,8,2)],
                     [],
                 ],
                                [
+                                   ['s'],
                                    lambda: print(f"Current audio level: {vol_norm.value}   {vol_rms.value}"),
+                                   ['y'],
+                                   ['u'],
                                    ['e'],
                         ])
+            if rn >= 1:
+                modifiedAction([
+                    *[[m_base+i] for i in range(1,8,2)],
+                    [],
+                ],
+                               [
+                                   ['2'],
+                                   ['3'],
+                                   ['4'],
+                                   ['5'],
+                                   ['1'],
+                        ])
+
+
+    # lambda: print(f"Current audio level: {vol_norm.value}   {vol_rms.value}"),
     right_rot = updateRotation(ROTATIONS_BASE + 1, [RIGHT_STICK_BASE + i for i in range(1,9)])
     if right_rot:
         rn = rotation2num(right_rot.state)
