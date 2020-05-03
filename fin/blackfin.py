@@ -13,17 +13,18 @@ import time
 from multiprocessing import Process, Queue, Value
 from miclevel import monitor_audio
 # q = Queue()
-vol_norm = Value('d', 980.0)
-vol_rms = Value('d', 980.0)
-p_audio_monitor = Process(target=monitor_audio, args=(vol_norm, vol_rms, False))
-p_audio_monitor.daemon = True
-p_audio_monitor.start()
-# time.sleep(1)
-print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
-# p_audio_monitor.join()
-# print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
-# exit()
-# print(q.get())
+vol_norm = Value('d', -1.0)
+vol_rms = Value('d', -1.0)
+if False:
+    p_audio_monitor = Process(target=monitor_audio, args=(vol_norm, vol_rms, False))
+    p_audio_monitor.daemon = True
+    p_audio_monitor.start()
+    # time.sleep(1)
+    print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
+    # p_audio_monitor.join()
+    # print(f"Current audio level: {vol_norm.value}   {vol_rms.value}")
+    # exit()
+    # print(q.get())
 ##
 import pyautogui as pag # BUG: Should not be imported before p_audio_monitor.start()
 
@@ -38,6 +39,7 @@ LEFT_STICK_BASE = 30
 RIGHT_STICK_BASE = 40
 ROTATIONS_BASE = 50
 TRIGGER_BASE = 60
+BTN_BASE = 70
 ###
 @dataclass
 class State:
@@ -57,7 +59,7 @@ pygame.init()
 dbg = os.environ.get('DEBUGME', '')
 c = x.Controller(dead_zone=DEADZONE)
 pressed = None
-g = [deque(maxlen=10) for i in range(100)]  # global state of all keys
+g = [deque(maxlen=10) for i in range(200)]  # global state of all keys
 
 
 def updateG(id, state, force=False):
@@ -84,7 +86,10 @@ def updateDir(id_base, c_dir):
         if updateG(id_base + dir.value, c_dir == dir) and dbg:
             # print(f"s1 angle: {x.stick2angle(lt_x,lt_y)}")
             print(f"{id_base} c_dir: {c_dir}")
-
+def btn_helper(id, action):
+    if updateRotation(BTN_BASE + id, [id]):
+        doAction(action)
+ 
 def updateRotation(id, ids, allow_dups=True):
     d = g[id]
     def addNew():
@@ -238,7 +243,16 @@ while not done:
     updateBtn(x.BACK, pressed)
     # updateBtn(x., pressed)
 
-    
+    btn_helper(x.A, ['a'])
+    btn_helper(x.X, ['x'])
+    btn_helper(x.Y, ['y'])
+    btn_helper(x.B, ['b'])
+    btn_helper(x.LEFT_STICK_BTN, ['l'])
+    btn_helper(PAD_BASE + 1, ['1']) # this uses BTN_BASE + PAD_BASE so it's bad
+    btn_helper(PAD_BASE + 3, ['2'])
+    btn_helper(PAD_BASE + 5, ['3'])
+    btn_helper(PAD_BASE + 7, ['4'])
+   
     left_rot = updateRotation(ROTATIONS_BASE, [LEFT_STICK_BASE + i for i in range(1,9)])
     if left_rot:
         lrot = left_rot.state
@@ -295,7 +309,7 @@ while not done:
     # else:
     #     noevents = 0
 
-    # time.sleep(0.001)
+    time.sleep(0.01) # needed for low cpu usage
 
 # close window on quit
 pygame.quit()

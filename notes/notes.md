@@ -1,3 +1,7 @@
+# Speed
+
+Based on the tests I've done, this will at most perform around 55 wpm. And that's if no fancy modifying schemes are used.
+
 # Repos
 
 * META https://github.com/pywinauto/pywinauto/wiki/UI-Automation-tools-ratings
