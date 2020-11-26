@@ -7,7 +7,7 @@ authors = ["NightMachinary <rudiwillalwaysloveyou@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.7"
 inputs = "^0.5"
-pygame = "^1.9.6"
+pygame = "^2.0.0"
 pyautogui = "^0.9.50"
 
 [tool.poetry.dev-dependencies]
